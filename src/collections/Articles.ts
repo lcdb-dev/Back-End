@@ -4,6 +4,7 @@ import { EditorialNoteBlock } from './blocks/EditorialNoteBlock';
 import { ImageGalleryBlock } from './blocks/ImageGalleryBlock';
 import { IntroductionBlock } from './blocks/IntroductionBlock';
 import { RecipeCardBlock } from './blocks/RecipeCardBlock';
+import { validateArticlePublicationChecklist } from './hooks/articlePublicationChecklist';
 
 import { createArticleRichTextEditor } from '@/lib/articleRichTextEditor';
 
@@ -43,6 +44,7 @@ export const Articles: CollectionConfig = {
     delete: ({ req }) => !!req.user,
   },
   hooks: {
+    beforeChange: [validateArticlePublicationChecklist],
     afterChange: [
       async ({ doc, operation }) => {
         console.log('[articles] webhook triggered', {
@@ -305,6 +307,16 @@ export const Articles: CollectionConfig = {
         {
           label: 'Metadata',
           fields: [
+            {
+              name: 'readyForPublication',
+              type: 'checkbox',
+              label: 'Ready for publication',
+              defaultValue: false,
+              admin: {
+                description:
+                  'Enable this to run strict publication checklist validation on every save. Keep off while drafting.',
+              },
+            },
             {
               name: 'lang',
               type: 'text',

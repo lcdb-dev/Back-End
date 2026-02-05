@@ -293,6 +293,10 @@ export interface Article {
    */
   noIndex?: boolean | null;
   /**
+   * Enable this to run strict publication checklist validation on every save. Keep off while drafting.
+   */
+  readyForPublication?: boolean | null;
+  /**
    * Language code for this article.
    */
   lang?: string | null;
@@ -708,6 +712,7 @@ export interface ArticlesSelect<T extends boolean = true> {
   seoImage?: T;
   canonicalURL?: T;
   noIndex?: T;
+  readyForPublication?: T;
   lang?: T;
   date?: T;
   modified?: T;
