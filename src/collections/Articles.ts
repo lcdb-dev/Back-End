@@ -1,167 +1,370 @@
 import type { CollectionConfig } from 'payload';
 
+import { EditorialNoteBlock } from './blocks/EditorialNoteBlock';
+import { ImageGalleryBlock } from './blocks/ImageGalleryBlock';
+import { IntroductionBlock } from './blocks/IntroductionBlock';
+import { RecipeCardBlock } from './blocks/RecipeCardBlock';
+
+import { createArticleRichTextEditor } from '@/lib/articleRichTextEditor';
+
+const isLocalWebhookTarget = (targetURL: string) => {
+  try {
+    const parsed = new URL(targetURL);
+    return parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+  } catch {
+    return false;
+  }
+};
+
 export const Articles: CollectionConfig = {
   slug: 'articles',
   labels: { singular: 'Article', plural: 'Articles' },
-  admin: { useAsTitle: 'title' },
+  admin: {
+    useAsTitle: 'title',
+    preview: (doc, { token }) => {
+      const slug = typeof doc?.slug === 'string' ? doc.slug : null;
+      if (!slug) {
+        return null;
+      }
+
+      const basePreviewPath = `/preview/article/${encodeURIComponent(slug)}`;
+      if (!token) {
+        return basePreviewPath;
+      }
+
+      const params = new URLSearchParams({ previewToken: token });
+      return `${basePreviewPath}?${params.toString()}`;
+    },
+  },
   access: {
     read: () => true,
     create: ({ req }) => !!req.user,
     update: ({ req }) => !!req.user,
     delete: ({ req }) => !!req.user,
   },
+  versions: {
+    drafts: {
+      autosave: true,
+    },
+  },
   hooks: {
     afterChange: [
       async ({ doc, operation }) => {
-        console.log('🔄 Article webhook hook triggered:', { operation, docId: doc?.id, slug: doc?.slug });
+        console.log('[articles] webhook triggered', {
+          operation,
+          docId: doc?.id,
+          slug: doc?.slug,
+        });
 
-        // Skip webhooks in development unless explicitly enabled
-        const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+        const isProduction =
+          process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
         const forceWebhooks = process.env.FORCE_WEBHOOKS === 'true';
 
         if (!isProduction && !forceWebhooks) {
-          console.log('🔄 Skipping webhook in development (set FORCE_WEBHOOKS=true to enable)');
+          console.log('[articles] webhook skipped in development');
           return;
         }
 
-        try {
-          // Primary: GitHub dispatch to trigger Astro rebuild/deploy
-          const ghDispatchUrl =
-            process.env.ASTRO_WEBHOOK_URL ||
-            'https://api.github.com/repos/lcdb-dev/Front-End/dispatches';
-          const ghToken = process.env.GITHUB_DISPATCH_TOKEN;
+        const webhookURL =
+          process.env.ASTRO_WEBHOOK_URL || 'https://api.github.com/repos/lcdb-dev/Front-End/dispatches';
+        const isLocalTarget = isLocalWebhookTarget(webhookURL);
+        const token = process.env.GITHUB_DISPATCH_TOKEN;
 
-          if (!ghToken) {
-            console.warn('⚠️ GITHUB_DISPATCH_TOKEN not set; skipping rebuild dispatch.');
-            return;
-          }
+        if (!isLocalTarget && !token) {
+          console.warn('[articles] missing GITHUB_DISPATCH_TOKEN, dispatch skipped');
+          return;
+        }
 
-          console.log('🔄 Sending GitHub dispatch to:', ghDispatchUrl);
-
-          // Prepare the payload
-          const payload = JSON.stringify({
-            event_type: 'payload-update',
-            client_payload: {
+        const body = isLocalTarget
+          ? {
               collection: 'articles',
               operation,
               id: doc?.id,
               slug: doc?.slug,
-            },
-          });
-
-          console.log('🔄 Payload to send:', payload);
-
-          // Use Node.js http module instead of fetch for localhost requests
-          const url = new URL(ghDispatchUrl);
-          const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
-          
-          const options = {
-            hostname: url.hostname,
-            port: url.port,
-            path: url.pathname,
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Content-Length': Buffer.byteLength(payload),
-              ...(isLocal ? {} : {
-                Accept: 'application/vnd.github+json',
-                Authorization: `token ${ghToken}`,
-              }),
-            },
-          };
-
-          // Use fetch for local requests, http.request for GitHub
-          if (isLocal) {
-            try {
-              // For local testing, use POST with JSON body instead of GET with query params
-              const payload = JSON.stringify({
+            }
+          : {
+              event_type: 'payload-update',
+              client_payload: {
                 collection: 'articles',
                 operation,
                 id: doc?.id,
                 slug: doc?.slug,
-              });
+              },
+            };
 
-              console.log('🔄 [WEBHOOK] Local POST payload:', payload);
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
 
-              const response = await fetch(ghDispatchUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: payload,
-              });
-              
-              const responseText = await response.text();
-              console.log('🔄 Response status:', response.status);
-              console.log('🔄 Response body:', responseText);
+        if (!isLocalTarget) {
+          headers.Accept = 'application/vnd.github+json';
+          headers.Authorization = `token ${token}`;
+        }
 
-              if (response.ok) {
-                console.log(`✅ Webhook sent for articles ${operation}: ${doc.slug || doc.id}`);
-              } else {
-                console.error(`❌ Webhook failed: ${response.status}`);
-                console.error('❌ Response body:', responseText);
-              }
-            } catch (fetchError) {
-              console.error('❌ Webhook fetch error:', fetchError);
-            }
-          } else {
-            // GitHub dispatch
-            const http = await import('http');
-            const https = await import('https');
-            const req = (url.protocol === 'https:' ? https : http).request(options, (res) => {
-              let data = '';
-              res.on('data', (chunk) => {
-                data += chunk;
-              });
-              res.on('end', () => {
-                console.log('🔄 Response status:', res.statusCode);
-                console.log('🔄 Response body:', data);
+        try {
+          const response = await fetch(webhookURL, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body),
+          });
 
-                if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-                  console.log(`✅ GitHub dispatch sent for articles ${operation}: ${doc.slug || doc.id}`);
-                } else {
-                  console.error(`❌ GitHub dispatch failed: ${res.statusCode}`);
-                  console.error('❌ Response body:', data);
-                }
-              });
+          const responseBody = await response.text();
+          if (!response.ok) {
+            console.error('[articles] webhook failed', {
+              status: response.status,
+              body: responseBody,
             });
-
-            req.on('error', (error) => {
-              console.error('❌ Webhook request error:', error);
-            });
-
-            req.write(payload);
-            req.end();
+            return;
           }
+
+          console.log('[articles] webhook sent', {
+            status: response.status,
+            slug: doc?.slug ?? doc?.id,
+          });
         } catch (error) {
-          console.error('❌ Webhook error:', error);
+          console.error('[articles] webhook error', error);
         }
       },
     ],
   },
   fields: [
-    { name: 'title', type: 'text', required: true },
-    { name: 'slug', type: 'text', required: true, unique: true },
-    { name: 'lang', type: 'text', defaultValue: 'en' },
-    { name: 'excerpt', type: 'textarea', label: 'Short Excerpt' },
-    { name: 'content', type: 'textarea', required: true, label: 'Full Content (HTML/Text)', maxLength: 1000000 },
-    { name: 'date', type: 'date', required: true },
-    { name: 'modified', type: 'date', label: 'Last Modified' },
-    { name: 'link', type: 'text', label: 'Original Link' },
-    { 
-      name: 'featuredImage', 
-      type: 'group', 
-      label: 'Featured Image',
-      fields: [
-        { name: 'url', type: 'text', label: 'Image URL' },
-        { name: 'width', type: 'number', label: 'Width' },
-        { name: 'height', type: 'number', label: 'Height' },
-        { name: 'alt', type: 'text', label: 'Alt Text' },
-        { name: 'id', type: 'text', label: 'Image ID' },
-      ]
+    {
+      name: 'title',
+      type: 'text',
+      required: true,
+      admin: {
+        description: 'Main editor-facing article title.',
+        placeholder: 'Creamy coffee cream',
+      },
     },
-    { name: 'author', type: 'relationship', relationTo: 'authors', hasMany: false },
-    { name: 'categories', type: 'relationship', relationTo: 'categories', hasMany: true },
-    { name: 'tags', type: 'relationship', relationTo: 'tags', hasMany: true },
+    {
+      name: 'slug',
+      type: 'text',
+      required: true,
+      unique: true,
+      admin: {
+        description: 'Used in the article URL.',
+        placeholder: 'creamy-coffee-cream',
+      },
+    },
+    {
+      type: 'tabs',
+      tabs: [
+        {
+          label: 'Content',
+          fields: [
+            {
+              name: 'excerpt',
+              type: 'textarea',
+              label: 'Short Excerpt',
+              admin: {
+                description: 'Introduction for cards/list pages. Keep this to 2-3 sentences.',
+                placeholder: 'A silky, coffee-forward cream for desserts and cakes.',
+              },
+            },
+            {
+              name: 'contentV2',
+              type: 'richText',
+              label: 'Content (Rich Text)',
+              editor: createArticleRichTextEditor({
+                placeholder: 'Write article content visually (no HTML).',
+              }),
+              admin: {
+                description:
+                  'Use this editor for all new content: headings, paragraphs, lists, media, and quotes.',
+              },
+            },
+            {
+              name: 'contentBlocks',
+              type: 'blocks',
+              labels: {
+                singular: 'Content Block',
+                plural: 'Content Blocks',
+              },
+              blocks: [IntroductionBlock, EditorialNoteBlock],
+              admin: {
+                description: 'Structured sections that can be reordered via drag and drop.',
+              },
+            },
+            {
+              name: 'content',
+              type: 'textarea',
+              label: 'Legacy Content (Read-only HTML)',
+              maxLength: 1000000,
+              admin: {
+                readOnly: true,
+                condition: (data) => Boolean(data?.content),
+                description:
+                  'Imported legacy HTML. It is preserved as-is and used only as fallback when contentV2 is empty.',
+              },
+            },
+          ],
+        },
+        {
+          label: 'Recipe',
+          fields: [
+            {
+              name: 'recipeBlocks',
+              type: 'blocks',
+              labels: {
+                singular: 'Recipe Block',
+                plural: 'Recipe Blocks',
+              },
+              blocks: [RecipeCardBlock],
+              admin: {
+                description:
+                  'Use recipe blocks for preparation/cooking times, ingredients, steps, and variations.',
+              },
+            },
+          ],
+        },
+        {
+          label: 'Images',
+          fields: [
+            {
+              name: 'featuredMedia',
+              type: 'upload',
+              relationTo: 'media',
+              admin: {
+                description:
+                  'Featured image from Media library. Alt text is required on media entries.',
+              },
+            },
+            {
+              name: 'imageBlocks',
+              type: 'blocks',
+              labels: {
+                singular: 'Image Block',
+                plural: 'Image Blocks',
+              },
+              blocks: [ImageGalleryBlock],
+              admin: {
+                description: 'Add drag-and-drop image galleries (no manual URLs).',
+              },
+            },
+            {
+              name: 'featuredImage',
+              type: 'group',
+              label: 'Legacy Featured Image (Read-only)',
+              admin: {
+                readOnly: true,
+                condition: (data) => Boolean(data?.featuredImage?.url),
+                description: 'Imported legacy image metadata kept for backward compatibility.',
+              },
+              fields: [
+                { name: 'url', type: 'text', label: 'Image URL', admin: { readOnly: true } },
+                { name: 'width', type: 'number', label: 'Width', admin: { readOnly: true } },
+                { name: 'height', type: 'number', label: 'Height', admin: { readOnly: true } },
+                { name: 'alt', type: 'text', label: 'Alt Text', admin: { readOnly: true } },
+                { name: 'id', type: 'text', label: 'Image ID', admin: { readOnly: true } },
+              ],
+            },
+          ],
+        },
+        {
+          label: 'SEO',
+          fields: [
+            {
+              name: 'seoTitle',
+              type: 'text',
+              admin: {
+                description: 'Optional SEO title override (recommended max 60 characters).',
+                placeholder: 'Creamy Coffee Cream Recipe',
+              },
+            },
+            {
+              name: 'seoDescription',
+              type: 'textarea',
+              maxLength: 160,
+              admin: {
+                description: 'Optional meta description (recommended max 160 characters).',
+                placeholder: 'Learn how to make a creamy coffee dessert filling in minutes.',
+              },
+            },
+            {
+              name: 'seoImage',
+              type: 'upload',
+              relationTo: 'media',
+              admin: {
+                description: 'Optional social share image from Media library.',
+              },
+            },
+            {
+              name: 'canonicalURL',
+              type: 'text',
+              admin: {
+                description: 'Optional canonical URL.',
+                placeholder: 'https://example.com/articles/creamy-coffee-cream',
+              },
+            },
+            {
+              name: 'noIndex',
+              type: 'checkbox',
+              defaultValue: false,
+              admin: {
+                description: 'Enable to prevent this page from being indexed.',
+              },
+            },
+          ],
+        },
+        {
+          label: 'Metadata',
+          fields: [
+            {
+              name: 'lang',
+              type: 'text',
+              defaultValue: 'en',
+              admin: {
+                description: 'Language code for this article.',
+                placeholder: 'en',
+              },
+            },
+            {
+              name: 'date',
+              type: 'date',
+              required: true,
+              admin: {
+                description: 'Original publication date.',
+              },
+            },
+            {
+              name: 'modified',
+              type: 'date',
+              label: 'Last Modified',
+              admin: {
+                description: 'Optional last modified date.',
+              },
+            },
+            {
+              name: 'link',
+              type: 'text',
+              label: 'Original Link',
+              admin: {
+                description: 'Optional source URL for imported articles.',
+                placeholder: 'https://example.com/original-article',
+              },
+            },
+            {
+              name: 'author',
+              type: 'relationship',
+              relationTo: 'authors',
+              hasMany: false,
+            },
+            {
+              name: 'categories',
+              type: 'relationship',
+              relationTo: 'categories',
+              hasMany: true,
+            },
+            {
+              name: 'tags',
+              type: 'relationship',
+              relationTo: 'tags',
+              hasMany: true,
+            },
+          ],
+        },
+      ],
+    },
   ],
 };

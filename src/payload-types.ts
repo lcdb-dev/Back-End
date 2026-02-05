@@ -212,14 +212,59 @@ export interface Tag {
  */
 export interface Article {
   id: string;
+  /**
+   * Main editor-facing article title.
+   */
   title: string;
+  /**
+   * Used in the article URL.
+   */
   slug: string;
-  lang?: string | null;
+  /**
+   * Introduction for cards/list pages. Keep this to 2-3 sentences.
+   */
   excerpt?: string | null;
-  content: string;
-  date: string;
-  modified?: string | null;
-  link?: string | null;
+  /**
+   * Use this editor for all new content: headings, paragraphs, lists, media, and quotes.
+   */
+  contentV2?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Structured sections that can be reordered via drag and drop.
+   */
+  contentBlocks?: (IntroductionBlock | EditorialNoteBlock)[] | null;
+  /**
+   * Imported legacy HTML. It is preserved as-is and used only as fallback when contentV2 is empty.
+   */
+  content?: string | null;
+  /**
+   * Use recipe blocks for preparation/cooking times, ingredients, steps, and variations.
+   */
+  recipeBlocks?: RecipeCardBlock[] | null;
+  /**
+   * Featured image from Media library. Alt text is required on media entries.
+   */
+  featuredMedia?: (string | null) | Media;
+  /**
+   * Add drag-and-drop image galleries (no manual URLs).
+   */
+  imageBlocks?: ImageGalleryBlock[] | null;
+  /**
+   * Imported legacy image metadata kept for backward compatibility.
+   */
   featuredImage?: {
     url?: string | null;
     width?: number | null;
@@ -227,11 +272,219 @@ export interface Article {
     alt?: string | null;
     id?: string | null;
   };
+  /**
+   * Optional SEO title override (recommended max 60 characters).
+   */
+  seoTitle?: string | null;
+  /**
+   * Optional meta description (recommended max 160 characters).
+   */
+  seoDescription?: string | null;
+  /**
+   * Optional social share image from Media library.
+   */
+  seoImage?: (string | null) | Media;
+  /**
+   * Optional canonical URL.
+   */
+  canonicalURL?: string | null;
+  /**
+   * Enable to prevent this page from being indexed.
+   */
+  noIndex?: boolean | null;
+  /**
+   * Language code for this article.
+   */
+  lang?: string | null;
+  /**
+   * Original publication date.
+   */
+  date: string;
+  /**
+   * Optional last modified date.
+   */
+  modified?: string | null;
+  /**
+   * Optional source URL for imported articles.
+   */
+  link?: string | null;
   author?: (string | null) | Author;
   categories?: (string | Category)[] | null;
   tags?: (string | Tag)[] | null;
   updatedAt: string;
   createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "IntroductionBlock".
+ */
+export interface IntroductionBlock {
+  /**
+   * Short heading for this section.
+   */
+  title: string;
+  /**
+   * Keep this concise. Editors should summarize the recipe or story in plain language.
+   */
+  body: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'introduction';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EditorialNoteBlock".
+ */
+export interface EditorialNoteBlock {
+  /**
+   * Short label for this note block.
+   */
+  title: string;
+  /**
+   * Classifies this note for editors.
+   */
+  tone: 'note' | 'tip' | 'variation';
+  /**
+   * Use this for highlighted notes and personal comments.
+   */
+  body: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'editorialNote';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "RecipeCardBlock".
+ */
+export interface RecipeCardBlock {
+  /**
+   * Visible heading for this recipe section.
+   */
+  title: string;
+  /**
+   * Preparation time in minutes.
+   */
+  preparationTimeMinutes: number;
+  /**
+   * Cooking time in minutes.
+   */
+  cookingTimeMinutes: number;
+  /**
+   * How many people this recipe serves.
+   */
+  servings: string;
+  /**
+   * Select the expected difficulty for this recipe.
+   */
+  difficulty: 'easy' | 'medium' | 'hard';
+  /**
+   * Ingredients: quantities required for each item.
+   */
+  ingredients: {
+    quantity: string;
+    item: string;
+    notes?: string | null;
+    id?: string | null;
+  }[];
+  /**
+   * Add one instruction per row to keep steps clear.
+   */
+  steps: {
+    /**
+     * Steps: one step per line.
+     */
+    instruction: string;
+    id?: string | null;
+  }[];
+  /**
+   * Optional tips to help readers succeed.
+   */
+  tips?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Optional notes or personal comments from the author.
+   */
+  personalNotes?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'recipeCard';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ImageGalleryBlock".
+ */
+export interface ImageGalleryBlock {
+  /**
+   * Optional heading shown above the gallery.
+   */
+  title: string;
+  /**
+   * Upload images from the Media library. No manual URLs.
+   */
+  images: {
+    image: string | Media;
+    caption?: string | null;
+    id?: string | null;
+  }[];
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'imageGallery';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -422,12 +675,26 @@ export interface TagsSelect<T extends boolean = true> {
 export interface ArticlesSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
-  lang?: T;
   excerpt?: T;
+  contentV2?: T;
+  contentBlocks?:
+    | T
+    | {
+        introduction?: T | IntroductionBlockSelect<T>;
+        editorialNote?: T | EditorialNoteBlockSelect<T>;
+      };
   content?: T;
-  date?: T;
-  modified?: T;
-  link?: T;
+  recipeBlocks?:
+    | T
+    | {
+        recipeCard?: T | RecipeCardBlockSelect<T>;
+      };
+  featuredMedia?: T;
+  imageBlocks?:
+    | T
+    | {
+        imageGallery?: T | ImageGalleryBlockSelect<T>;
+      };
   featuredImage?:
     | T
     | {
@@ -437,11 +704,87 @@ export interface ArticlesSelect<T extends boolean = true> {
         alt?: T;
         id?: T;
       };
+  seoTitle?: T;
+  seoDescription?: T;
+  seoImage?: T;
+  canonicalURL?: T;
+  noIndex?: T;
+  lang?: T;
+  date?: T;
+  modified?: T;
+  link?: T;
   author?: T;
   categories?: T;
   tags?: T;
   updatedAt?: T;
   createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "IntroductionBlock_select".
+ */
+export interface IntroductionBlockSelect<T extends boolean = true> {
+  title?: T;
+  body?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EditorialNoteBlock_select".
+ */
+export interface EditorialNoteBlockSelect<T extends boolean = true> {
+  title?: T;
+  tone?: T;
+  body?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "RecipeCardBlock_select".
+ */
+export interface RecipeCardBlockSelect<T extends boolean = true> {
+  title?: T;
+  preparationTimeMinutes?: T;
+  cookingTimeMinutes?: T;
+  servings?: T;
+  difficulty?: T;
+  ingredients?:
+    | T
+    | {
+        quantity?: T;
+        item?: T;
+        notes?: T;
+        id?: T;
+      };
+  steps?:
+    | T
+    | {
+        instruction?: T;
+        id?: T;
+      };
+  tips?: T;
+  personalNotes?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ImageGalleryBlock_select".
+ */
+export interface ImageGalleryBlockSelect<T extends boolean = true> {
+  title?: T;
+  images?:
+    | T
+    | {
+        image?: T;
+        caption?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

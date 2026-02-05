@@ -1,0 +1,108 @@
+.preview-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 48px 20px 96px;
+  color: #2f2517;
+  font-family: "Source Serif 4", Georgia, serif;
+  line-height: 1.7;
+}
+
+.preview-header h1,
+.preview-page h2,
+.preview-page h3 {
+  color: #17120b;
+  line-height: 1.2;
+}
+
+.preview-header h1 {
+  margin: 0 0 12px;
+  font-size: clamp(2.1rem, 4vw, 3.1rem);
+}
+
+.preview-kicker {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-size: 0.72rem;
+  color: #8f6b3a;
+}
+
+.preview-excerpt {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #4a3a24;
+}
+
+.preview-featured {
+  margin: 36px 0;
+}
+
+.preview-featured img,
+.preview-gallery img {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid #d9cfbe;
+}
+
+.preview-body {
+  background: #f3ede0;
+  border: 1px solid #e5dbc9;
+  border-radius: 16px;
+  padding: 30px;
+}
+
+.preview-block + .preview-block {
+  margin-top: 32px;
+}
+
+.preview-note {
+  border-left: 4px solid #c6872f;
+  padding-left: 16px;
+}
+
+.preview-recipe {
+  border-radius: 12px;
+  border: 1px solid #d7cab1;
+  background: #faf6ee;
+  padding: 24px;
+}
+
+.preview-recipe-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 20px;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-size: 0.92rem;
+}
+
+.preview-gallery {
+  display: grid;
+  gap: 20px;
+  margin-top: 18px;
+}
+
+.preview-gallery figcaption {
+  margin-top: 8px;
+  font-size: 0.92rem;
+  color: #53432d;
+}
+
+.preview-legacy {
+  font-size: 1rem;
+}
+
+@media (max-width: 720px) {
+  .preview-page {
+    padding: 24px 16px 64px;
+  }
+
+  .preview-body {
+    padding: 20px;
+  }
+
+  .preview-recipe-meta {
+    grid-template-columns: 1fr;
+  }
+}
