@@ -42,11 +42,6 @@ export const Articles: CollectionConfig = {
     update: ({ req }) => !!req.user,
     delete: ({ req }) => !!req.user,
   },
-  versions: {
-    drafts: {
-      autosave: true,
-    },
-  },
   hooks: {
     afterChange: [
       async ({ doc, operation }) => {
