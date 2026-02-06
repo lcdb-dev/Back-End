@@ -28,10 +28,19 @@ export const translateEndpoint: Endpoint = {
       return Response.json({ error: 'DEEPL_API_KEY not configured' }, { status: 500 })
     }
 
+    const reqAny = req as unknown as { json?: () => Promise<unknown>; body?: unknown }
     let body: any = null
-    try {
-      body = await req.json()
-    } catch (error) {
+    if (typeof reqAny.json === 'function') {
+      try {
+        body = await reqAny.json()
+      } catch {
+        return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
+      }
+    } else if (reqAny.body) {
+      body = reqAny.body
+    }
+
+    if (!body || typeof body !== 'object') {
       return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
 
