@@ -47,7 +47,7 @@ export const translateEndpoint: Endpoint = {
     const rawTarget = body?.targetLang || body?.target || body?.target_lang
     const targetLang = normalizeTargetLang(rawTarget)
 
-    const texts = Array.isArray(body?.texts)
+    const texts: string[] = Array.isArray(body?.texts)
       ? body.texts.map((text: unknown) => String(text ?? '').trim()).filter(Boolean)
       : []
 
@@ -62,7 +62,7 @@ export const translateEndpoint: Endpoint = {
     const params = new URLSearchParams()
     params.append('auth_key', apiKey)
     params.append('target_lang', targetLang)
-    texts.forEach((text) => params.append('text', text))
+    texts.forEach((text: string) => params.append('text', text))
 
     const response = await fetch(apiUrl, {
       method: 'POST',
