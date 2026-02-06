@@ -1,5 +1,7 @@
 import type { CollectionConfig } from 'payload';
 
+import { dispatchPayloadWebhook } from '@/lib/payloadWebhook';
+
 export const Authors: CollectionConfig = {
   slug: 'authors',
   labels: { singular: 'Author', plural: 'Authors' },
@@ -9,6 +11,18 @@ export const Authors: CollectionConfig = {
     create: ({ req }) => !!req.user,
     update: ({ req }) => !!req.user,
     delete: ({ req }) => !!req.user,
+  },
+  hooks: {
+    afterChange: [
+      async ({ doc, operation }) => {
+        await dispatchPayloadWebhook({
+          collection: 'authors',
+          operation,
+          id: doc?.id,
+          slug: doc?.name,
+        });
+      },
+    ],
   },
   fields: [
     { name: 'name', type: 'text', required: true },

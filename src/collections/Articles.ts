@@ -7,15 +7,7 @@ import { RecipeCardBlock } from './blocks/RecipeCardBlock';
 import { validateArticlePublicationChecklist } from './hooks/articlePublicationChecklist';
 
 import { createArticleRichTextEditor } from '@/lib/articleRichTextEditor';
-
-const isLocalWebhookTarget = (targetURL: string) => {
-  try {
-    const parsed = new URL(targetURL);
-    return parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
-  } catch {
-    return false;
-  }
-};
+import { dispatchPayloadWebhook } from '@/lib/payloadWebhook';
 
 export const Articles: CollectionConfig = {
   slug: 'articles',
@@ -53,74 +45,12 @@ export const Articles: CollectionConfig = {
           slug: doc?.slug,
         });
 
-        const isProduction =
-          process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
-        const forceWebhooks = process.env.FORCE_WEBHOOKS === 'true';
-
-        if (!isProduction && !forceWebhooks) {
-          console.log('[articles] webhook skipped in development');
-          return;
-        }
-
-        const webhookURL =
-          process.env.ASTRO_WEBHOOK_URL || 'https://api.github.com/repos/lcdb-dev/Front-End/dispatches';
-        const isLocalTarget = isLocalWebhookTarget(webhookURL);
-        const token = process.env.GITHUB_DISPATCH_TOKEN;
-
-        if (!isLocalTarget && !token) {
-          console.warn('[articles] missing GITHUB_DISPATCH_TOKEN, dispatch skipped');
-          return;
-        }
-
-        const body = isLocalTarget
-          ? {
-              collection: 'articles',
-              operation,
-              id: doc?.id,
-              slug: doc?.slug,
-            }
-          : {
-              event_type: 'payload-update',
-              client_payload: {
-                collection: 'articles',
-                operation,
-                id: doc?.id,
-                slug: doc?.slug,
-              },
-            };
-
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-
-        if (!isLocalTarget) {
-          headers.Accept = 'application/vnd.github+json';
-          headers.Authorization = `token ${token}`;
-        }
-
-        try {
-          const response = await fetch(webhookURL, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(body),
-          });
-
-          const responseBody = await response.text();
-          if (!response.ok) {
-            console.error('[articles] webhook failed', {
-              status: response.status,
-              body: responseBody,
-            });
-            return;
-          }
-
-          console.log('[articles] webhook sent', {
-            status: response.status,
-            slug: doc?.slug ?? doc?.id,
-          });
-        } catch (error) {
-          console.error('[articles] webhook error', error);
-        }
+        await dispatchPayloadWebhook({
+          collection: 'articles',
+          operation,
+          id: doc?.id,
+          slug: doc?.slug,
+        });
       },
     ],
   },
