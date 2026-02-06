@@ -12,6 +12,7 @@ import { Categories } from './collections/Categories'
 import { Tags } from './collections/Tags'
 import { Articles } from './collections/Articles'
 import { Comments } from './collections/Comments'
+import { translateEndpoint } from './endpoints/translate'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -28,6 +29,7 @@ export default buildConfig({
     },
   },
   collections: [Users, Media, Authors, Categories, Tags, Articles, Comments],
+  endpoints: [translateEndpoint],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
